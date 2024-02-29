@@ -17,7 +17,6 @@ import warnings
 from functools import partial
 
 import torch
-import torch.nn as nn
 import torch.nn.parallel
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
@@ -38,8 +37,8 @@ import vits
 
 
 torchvision_model_names = sorted(name for name in torchvision_models.__dict__
-    if name.islower() and not name.startswith("__")
-    and callable(torchvision_models.__dict__[name]))
+                                 if name.islower() and not name.startswith("__")
+                                 and callable(torchvision_models.__dict__[name]))
 
 model_names = ['vit_small', 'vit_base', 'vit_conv_small', 'vit_conv_base'] + torchvision_model_names
 
@@ -49,8 +48,8 @@ parser.add_argument('data', metavar='DIR',
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
                     choices=model_names,
                     help='model architecture: ' +
-                        ' | '.join(model_names) +
-                        ' (default: resnet50)')
+                    ' | '.join(model_names) +
+                    ' (default: resnet50)')
 parser.add_argument('-j', '--workers', default=32, type=int, metavar='N',
                     help='number of data loading workers (default: 32)')
 parser.add_argument('--epochs', default=100, type=int, metavar='N',
@@ -183,7 +182,7 @@ def main_worker(gpu, ngpus_per_node, args):
             args.moco_dim, args.moco_mlp_dim, args.moco_t)
     else:
         model = moco.builder.MoCo_ResNet(
-            partial(torchvision_models.__dict__[args.arch], zero_init_residual=True), 
+            partial(torchvision_models.__dict__[args.arch], zero_init_residual=True),
             args.moco_dim, args.moco_mlp_dim, args.moco_t)
 
     # infer learning rate before changing batch size
@@ -219,7 +218,7 @@ def main_worker(gpu, ngpus_per_node, args):
     else:
         # AllGather/rank implementation in this code only supports DistributedDataParallel.
         raise NotImplementedError("Only DistributedDataParallel is supported.")
-    print(model) # print model after SyncBatchNorm
+    print(model)  # print model after SyncBatchNorm
 
     if args.optimizer == 'lars':
         optimizer = moco.optimizer.LARS(model.parameters(), args.lr,
@@ -227,8 +226,8 @@ def main_worker(gpu, ngpus_per_node, args):
                                         momentum=args.momentum)
     elif args.optimizer == 'adamw':
         optimizer = torch.optim.AdamW(model.parameters(), args.lr,
-                                weight_decay=args.weight_decay)
-        
+                                      weight_decay=args.weight_decay)
+
     scaler = torch.cuda.amp.GradScaler()
     summary_writer = SummaryWriter() if args.rank == 0 else None
 
@@ -286,7 +285,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     train_dataset = datasets.ImageFolder(
         traindir,
-        moco.loader.TwoCropsTransform(transforms.Compose(augmentation1), 
+        moco.loader.TwoCropsTransform(transforms.Compose(augmentation1),
                                       transforms.Compose(augmentation2)))
 
     if args.distributed:
@@ -305,18 +304,20 @@ def main_worker(gpu, ngpus_per_node, args):
         # train for one epoch
         train(train_loader, model, optimizer, scaler, summary_writer, epoch, args)
 
-        if not args.multiprocessing_distributed or (args.multiprocessing_distributed
-                and args.rank == 0): # only the first GPU saves checkpoint
+        # only the first GPU saves checkpoint
+        if not args.multiprocessing_distributed or \
+           (args.multiprocessing_distributed and args.rank == 0):
             save_checkpoint({
                 'epoch': epoch + 1,
                 'arch': args.arch,
                 'state_dict': model.state_dict(),
-                'optimizer' : optimizer.state_dict(),
+                'optimizer': optimizer.state_dict(),
                 'scaler': scaler.state_dict(),
             }, is_best=False, filename='checkpoint_%04d.pth.tar' % epoch)
 
     if args.rank == 0:
         summary_writer.close()
+
 
 def train(train_loader, model, optimizer, scaler, summary_writer, epoch, args):
     batch_time = AverageMeter('Time', ':6.3f')
@@ -378,6 +379,7 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
+
     def __init__(self, name, fmt=':f'):
         self.name = name
         self.fmt = fmt
@@ -420,9 +422,11 @@ class ProgressMeter(object):
 def adjust_learning_rate(optimizer, epoch, args):
     """Decays the learning rate with half-cycle cosine after warmup"""
     if epoch < args.warmup_epochs:
-        lr = args.lr * epoch / args.warmup_epochs 
+        lr = args.lr * epoch / args.warmup_epochs
     else:
-        lr = args.lr * 0.5 * (1. + math.cos(math.pi * (epoch - args.warmup_epochs) / (args.epochs - args.warmup_epochs)))
+        lr = args.lr * 0.5 * (
+            1. + math.cos(math.pi * (epoch - args.warmup_epochs) /
+                          (args.epochs - args.warmup_epochs)))
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
     return lr

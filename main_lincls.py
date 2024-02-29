@@ -31,8 +31,8 @@ import torchvision.models as torchvision_models
 import vits
 
 torchvision_model_names = sorted(name for name in torchvision_models.__dict__
-    if name.islower() and not name.startswith("__")
-    and callable(torchvision_models.__dict__[name]))
+                                 if name.islower() and not name.startswith("__")
+                                 and callable(torchvision_models.__dict__[name]))
 
 model_names = ['vit_small', 'vit_base', 'vit_conv_small', 'vit_conv_base'] + torchvision_model_names
 
@@ -42,8 +42,8 @@ parser.add_argument('data', metavar='DIR',
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
                     choices=model_names,
                     help='model architecture: ' +
-                        ' | '.join(model_names) +
-                        ' (default: resnet50)')
+                    ' | '.join(model_names) +
+                    ' (default: resnet50)')
 parser.add_argument('-j', '--workers', default=32, type=int, metavar='N',
                     help='number of data loading workers (default: 32)')
 parser.add_argument('--epochs', default=90, type=int, metavar='N',
@@ -178,7 +178,8 @@ def main_worker(gpu, ngpus_per_node, args):
             state_dict = checkpoint['state_dict']
             for k in list(state_dict.keys()):
                 # retain only base_encoder up to before the embedding layer
-                if k.startswith('module.base_encoder') and not k.startswith('module.base_encoder.%s' % linear_keyword):
+                if k.startswith('module.base_encoder') and not \
+                   k.startswith('module.base_encoder.%s' % linear_keyword):
                     # remove prefix
                     state_dict[k[len("module.base_encoder."):]] = state_dict[k]
                 # delete renamed or unused k
@@ -186,7 +187,8 @@ def main_worker(gpu, ngpus_per_node, args):
 
             args.start_epoch = 0
             msg = model.load_state_dict(state_dict, strict=False)
-            assert set(msg.missing_keys) == {"%s.weight" % linear_keyword, "%s.bias" % linear_keyword}
+            assert set(msg.missing_keys) == {"%s.weight" %
+                                             linear_keyword, "%s.bias" % linear_keyword}
 
             print("=> loaded pre-trained model '{}'".format(args.pretrained))
         else:
@@ -314,14 +316,15 @@ def main_worker(gpu, ngpus_per_node, args):
         is_best = acc1 > best_acc1
         best_acc1 = max(acc1, best_acc1)
 
-        if not args.multiprocessing_distributed or (args.multiprocessing_distributed
-                and args.rank == 0): # only the first GPU saves checkpoint
+        # only the first GPU saves checkpoint
+        if not args.multiprocessing_distributed or \
+           (args.multiprocessing_distributed and args.rank == 0):
             save_checkpoint({
                 'epoch': epoch + 1,
                 'arch': args.arch,
                 'state_dict': model.state_dict(),
                 'best_acc1': best_acc1,
-                'optimizer' : optimizer.state_dict(),
+                'optimizer': optimizer.state_dict(),
             }, is_best)
             if epoch == args.start_epoch:
                 sanity_check(model.state_dict(), args.pretrained, linear_keyword)
@@ -457,6 +460,7 @@ def sanity_check(state_dict, pretrained_weights, linear_keyword):
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
+
     def __init__(self, name, fmt=':f'):
         self.name = name
         self.fmt = fmt

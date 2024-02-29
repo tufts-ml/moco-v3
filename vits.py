@@ -11,11 +11,10 @@ from functools import partial, reduce
 from operator import mul
 
 from timm.models.vision_transformer import VisionTransformer, _cfg
-from timm.models.layers.helpers import to_2tuple
-from timm.models.layers import PatchEmbed
+from timm.models.layers import PatchEmbed, to_2tuple
 
 __all__ = [
-    'vit_small', 
+    'vit_small',
     'vit_base',
     'vit_conv_small',
     'vit_conv_base',
@@ -42,7 +41,8 @@ class VisionTransformerMoCo(VisionTransformer):
 
         if isinstance(self.patch_embed, PatchEmbed):
             # xavier_uniform initialization
-            val = math.sqrt(6. / float(3 * reduce(mul, self.patch_embed.patch_size, 1) + self.embed_dim))
+            val = math.sqrt(
+                6. / float(3 * reduce(mul, self.patch_embed.patch_size, 1) + self.embed_dim))
             nn.init.uniform_(self.patch_embed.proj.weight, -val, val)
             nn.init.zeros_(self.patch_embed.proj.bias)
 
@@ -55,13 +55,15 @@ class VisionTransformerMoCo(VisionTransformer):
         grid_w = torch.arange(w, dtype=torch.float32)
         grid_h = torch.arange(h, dtype=torch.float32)
         grid_w, grid_h = torch.meshgrid(grid_w, grid_h)
-        assert self.embed_dim % 4 == 0, 'Embed dimension must be divisible by 4 for 2D sin-cos position embedding'
+        assert self.embed_dim % 4 == 0, \
+            'Embed dimension must be divisible by 4 for 2D sin-cos position embedding'
         pos_dim = self.embed_dim // 4
         omega = torch.arange(pos_dim, dtype=torch.float32) / pos_dim
         omega = 1. / (temperature**omega)
         out_w = torch.einsum('m,d->md', [grid_w.flatten(), omega])
         out_h = torch.einsum('m,d->md', [grid_h.flatten(), omega])
-        pos_emb = torch.cat([torch.sin(out_w), torch.cos(out_w), torch.sin(out_h), torch.cos(out_h)], dim=1)[None, :, :]
+        pos_emb = torch.cat([torch.sin(out_w), torch.cos(
+            out_w), torch.sin(out_h), torch.cos(out_h)], dim=1)[None, :, :]
 
         assert self.num_tokens == 1, 'Assuming one and only one token, [cls]'
         pe_token = torch.zeros([1, 1, self.embed_dim], dtype=torch.float32)
@@ -70,10 +72,13 @@ class VisionTransformerMoCo(VisionTransformer):
 
 
 class ConvStem(nn.Module):
-    """ 
-    ConvStem, from Early Convolutions Help Transformers See Better, Tete et al. https://arxiv.org/abs/2106.14881
     """
-    def __init__(self, img_size=224, patch_size=16, in_chans=3, embed_dim=768, norm_layer=None, flatten=True):
+    ConvStem, from Early Convolutions Help Transformers See Better,
+    Tete et al. https://arxiv.org/abs/2106.14881
+    """
+
+    def __init__(self, img_size=224, patch_size=16, in_chans=3, embed_dim=768, norm_layer=None,
+                 flatten=True):
         super().__init__()
 
         assert patch_size == 16, 'ConvStem only supports patch size of 16'
@@ -91,7 +96,8 @@ class ConvStem(nn.Module):
         stem = []
         input_dim, output_dim = 3, embed_dim // 8
         for l in range(4):
-            stem.append(nn.Conv2d(input_dim, output_dim, kernel_size=3, stride=2, padding=1, bias=False))
+            stem.append(nn.Conv2d(input_dim, output_dim, kernel_size=3,
+                        stride=2, padding=1, bias=False))
             stem.append(nn.BatchNorm2d(output_dim))
             stem.append(nn.ReLU(inplace=True))
             input_dim = output_dim
@@ -119,12 +125,14 @@ def vit_small(**kwargs):
     model.default_cfg = _cfg()
     return model
 
+
 def vit_base(**kwargs):
     model = VisionTransformerMoCo(
         patch_size=16, embed_dim=768, depth=12, num_heads=12, mlp_ratio=4, qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     model.default_cfg = _cfg()
     return model
+
 
 def vit_conv_small(**kwargs):
     # minus one ViT block
@@ -133,6 +141,7 @@ def vit_conv_small(**kwargs):
         norm_layer=partial(nn.LayerNorm, eps=1e-6), embed_layer=ConvStem, **kwargs)
     model.default_cfg = _cfg()
     return model
+
 
 def vit_conv_base(**kwargs):
     # minus one ViT block
