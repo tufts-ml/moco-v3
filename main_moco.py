@@ -31,6 +31,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 import moco.builder
 import moco.loader
+import moco.loss
 import moco.optimizer
 
 import vits
@@ -179,13 +180,13 @@ def main_worker(gpu, ngpus_per_node, args):
     # create model
     print("=> creating model '{}'".format(args.arch))
     if args.arch.startswith('vit'):
-        model = moco.builder.MoCo_ViT(
+        model = moco.builder.MoCoViT(
             partial(vits.__dict__[args.arch], stop_grad_conv1=args.stop_grad_conv1),
-            args.moco_dim, args.moco_mlp_dim, args.moco_t)
+            args.moco_dim, args.moco_mlp_dim)
     else:
-        model = moco.builder.MoCo_ResNet(
+        model = moco.builder.MoCoResNet(
             partial(torchvision_models.__dict__[args.arch], zero_init_residual=True),
-            args.moco_dim, args.moco_mlp_dim, args.moco_t)
+            args.moco_dim, args.moco_mlp_dim)
 
     # infer learning rate before changing batch size
     args.lr = args.lr * args.batch_size / 256
@@ -331,12 +332,15 @@ def train(train_loader, model, optimizer, scaler, summary_writer, epoch, args):
         [batch_time, data_time, learning_rates, losses],
         prefix="Epoch: [{}]".format(epoch))
 
+    # init loss func
+    loss_func = moco.loss.MoCoLoss(args.moco_t)
+
     # switch to train mode
     model.train()
 
-    end = time.time()
     iters_per_epoch = len(train_loader)
     moco_m = args.moco_m
+    end = time.time()
     for i, (images, _) in enumerate(train_loader):
         # measure data loading time
         data_time.update(time.time() - end)
@@ -353,7 +357,7 @@ def train(train_loader, model, optimizer, scaler, summary_writer, epoch, args):
 
         # compute output
         with torch.cuda.amp.autocast(True):
-            loss = model(images[0], images[1], moco_m)
+            loss = loss_func(model(images[0], images[1], moco_m))
 
         losses.update(loss.item(), images[0].size(0))
         if args.rank == 0:
@@ -365,12 +369,11 @@ def train(train_loader, model, optimizer, scaler, summary_writer, epoch, args):
         scaler.step(optimizer)
         scaler.update()
 
-        # measure elapsed time
+        # measure elapsed time and display
         batch_time.update(time.time() - end)
-        end = time.time()
-
         if i % args.print_freq == 0:
             progress.display(i)
+        end = time.time()
 
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
